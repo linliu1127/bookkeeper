@@ -188,7 +188,7 @@ var Report = (function () {
 
   /* ---------- 趨勢 ---------- */
   function seriesDefs() {
-    var cats = BK().CATS;
+    var cats = BK().reportCats();
     var defs = [
       { id: 'balance', label: '結餘', group: '綜合' },
       { id: 'exp:*', label: '總支出', group: '綜合' },

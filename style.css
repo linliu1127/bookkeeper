@@ -274,3 +274,34 @@ input[type=text] { width: 100%; }
   box-shadow: var(--shadow); font-weight: 600;
 }
 .update-bar .btn { padding: 8px 14px; }
+
+/* ---------- 子類別 ---------- */
+.cats-empty { grid-column: 1 / -1; margin: 8px 0; color: var(--muted); font-size: 14px; text-align: center; }
+.subs { display: flex; flex-wrap: wrap; gap: 8px; }
+.subs[hidden] { display: none; }
+.sub-btn {
+  padding: 6px 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--line);
+  font-size: 14px; color: var(--text);
+}
+.sub-btn[aria-pressed=true] { border-color: var(--accent); background: var(--key-op); font-weight: 600; }
+
+/* ---------- 類別編輯器 ---------- */
+.ce-list { display: flex; flex-direction: column; gap: 8px; }
+.ce-empty { color: var(--muted); text-align: center; margin: 16px 0; }
+.ce-item { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.ce-head, .ce-sub { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 4px 8px 4px 12px; }
+.ce-head { cursor: pointer; }
+.ce-ico { font-size: 22px; }
+.ce-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ce-count { color: var(--muted); font-size: 12px; }
+.ce-btn { min-height: 36px; padding: 0 10px; border-radius: 8px; background: var(--key); font-size: 13px; color: var(--text); }
+.ce-btn.danger { color: var(--exp, #c0392b); }
+.ce-subs { border-top: 1px solid var(--line); background: var(--bg); padding: 4px 0 8px; }
+.ce-sub { padding-left: 24px; }
+.ce-sub .ce-name { font-weight: 500; }
+.ce-title { margin: 20px 0 8px; font-size: 14px; color: var(--muted); }
+.ce-addrow { display: flex; gap: 8px; padding: 4px 12px; align-items: center; }
+.ce-list + .ce-title + .ce-addrow { padding: 0; }
+.ce-addrow input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font-size: 16px; }
+.ce-addrow .ce-icon { flex: 0 0 56px; text-align: center; }
+.ce-add { padding: 10px 14px; }

@@ -7,6 +7,7 @@ var Backup = (function () {
   var FILE_TYPES = [{ description: 'JSON 備份檔', accept: { 'application/json': ['.json'] } }];
   var handle = null;
   var getData = null;
+  var getCats = function () { return null; };
   var timer = null;
   var perm = 'unknown';
   var asked = false; // 本次開啟是否已自動詢問過授權
@@ -17,8 +18,9 @@ var Backup = (function () {
     return 'showSaveFilePicker' in window && 'showOpenFilePicker' in window;
   }
 
-  async function init(dataFn, onChange) {
+  async function init(dataFn, onChange, catsFn) {
     getData = dataFn;
+    if (catsFn) getCats = catsFn;
     if (onChange) listener = onChange;
     handle = (await Store.kvGet('backupHandle')) || null;
     if (handle) {
@@ -27,7 +29,7 @@ var Backup = (function () {
   }
 
   function payload() {
-    return JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), entries: getData() }, null, 1);
+    return JSON.stringify({ version: 2, exportedAt: new Date().toISOString(), entries: getData(), categories: getCats() }, null, 1);
   }
 
   function lastTime() {
@@ -155,18 +157,22 @@ var Backup = (function () {
     var obj = JSON.parse(text);
     var list = Array.isArray(obj) ? obj : obj && obj.entries;
     if (!Array.isArray(list)) throw new Error('格式不正確');
-    return list.filter(function (e) {
+    var entries = list.filter(function (e) {
       return e && typeof e.id === 'string' && DATE_RE.test(e.date) &&
         (e.type === 'expense' || e.type === 'income') &&
         typeof e.category === 'string' && isFinite(e.amount) && e.amount > 0;
     }).map(function (e) {
-      return {
+      var out = {
         id: e.id, date: e.date, type: e.type, category: e.category,
         amount: Math.round(e.amount * 100) / 100,
         note: typeof e.note === 'string' ? e.note.slice(0, 60) : '',
         createdAt: Number(e.createdAt) || 0
       };
+      var sub = typeof e.sub === 'string' ? e.sub.trim().slice(0, 20) : '';
+      if (sub) out.sub = sub;
+      return out;
     });
+    return { entries: entries, categories: Categories.normalize(Array.isArray(obj) ? null : obj.categories, true) };
   }
 
   function exportDownload() {

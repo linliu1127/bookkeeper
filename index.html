@@ -66,6 +66,7 @@
         <button type="button" data-type="income">收入</button>
       </div>
       <div class="cats" id="f-cats"></div>
+      <div class="subs" id="f-subs" hidden></div>
       <input id="f-note" type="text" placeholder="備註（選填）" maxlength="60" autocomplete="off">
     </div>
     <div class="calc">
@@ -109,6 +110,7 @@
       <div class="drawer-head">記帳</div>
       <button data-go="list">📒　流水帳</button>
       <button data-go="report">📊　財務報表</button>
+      <button data-go="catedit">🏷️　類別編輯器</button>
       <button data-go="settings">⚙️　設定與備份</button>
     </nav>
   </div>
@@ -130,14 +132,32 @@
     <div class="sheet-body" id="r-body"></div>
   </div>
 
+  <!-- 類別編輯器 -->
+  <div id="catedit" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="ce-title">
+    <div class="sheet-top">
+      <button id="ce-close" class="icon-btn" aria-label="關閉">✕</button>
+      <h2 id="ce-title">類別編輯器</h2>
+      <span></span>
+    </div>
+    <div class="r-tabs-bar">
+      <div class="seg" id="ce-tabs" role="group" aria-label="收支類型">
+        <button type="button" data-tab="expense">支出</button>
+        <button type="button" data-tab="income">收入</button>
+      </div>
+    </div>
+    <div class="sheet-body" id="ce-body"></div>
+  </div>
+
   <div id="toast" class="toast" hidden></div>
   <input type="file" id="file-input" accept="application/json,.json" hidden>
 
   <script src="calc.js"></script>
   <script src="store.js"></script>
+  <script src="categories.js"></script>
   <script src="backup.js"></script>
   <script src="report-core.js"></script>
   <script src="app.js"></script>
   <script src="report.js"></script>
+  <script src="catedit.js"></script>
 </body>
 </html>

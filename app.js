@@ -1,11 +1,36 @@
 (function () {
   'use strict';
 
-  var CATS = {
-    expense: [['餐費', '🍜'], ['購物', '🛍️'], ['交通', '🚌'], ['日用品', '🧴'], ['娛樂', '🎮'], ['醫療', '💊'], ['居住', '🏠'],
-      ['禮物', '🎁'], ['稅', '🧾'], ['孝養金', '🧧'], ['旅遊', '✈️'], ['數位', '📱'], ['借錢', '🤝'], ['投資', '💹'], ['保險', '🛡️'], ['其他', '📦']],
-    income: [['薪水', '💼'], ['股息', '📈'], ['獎金', '🎁'], ['投資', '💹'], ['定存利息', '🏦'], ['其他', '💰']]
-  };
+  // CATS 是 catData 的「[名稱, 圖示]」視圖，供選單與 iconOf 使用；由 syncCats() 就地重建
+  var CATS = { expense: [], income: [] };
+  var CATS_LS = 'bookkeeper.categories'; // localStorage 保險副本，IndexedDB 失效時仍有類別清單
+  var catData = Categories.defaults();
+  function syncCats() {
+    ['expense', 'income'].forEach(function (t) {
+      CATS[t].length = 0;
+      catData[t].forEach(function (c) { CATS[t].push([c.name, c.icon]); });
+    });
+  }
+  // 只寫入，不算「未備份變更」（還原備份時用：資料本來就來自備份檔）
+  async function persistCats() {
+    syncCats();
+    try { localStorage.setItem(CATS_LS, JSON.stringify(catData)); } catch (e) { /* 保險用，失敗就算了 */ }
+    await Store.kvSet('categories', catData);
+  }
+  async function saveCats() {
+    Backup.bump();
+    Backup.schedule();
+    await persistCats();
+  }
+  // 類別改名對照：舊帳目只在第一次啟動時轉成新名稱（見 start()）
+  var RENAMES = { '投資': '股票' };
+  function migrateCats(list) {
+    var n = 0;
+    list.forEach(function (e) {
+      if (RENAMES[e.category]) { e.category = RENAMES[e.category]; n++; }
+    });
+    return n;
+  }
   var WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 
   var entries = Store.entries;
@@ -64,7 +89,7 @@
   function describe(op) {
     var e = op.after || op.entry;
     var name = { add: '新增', edit: '編輯', del: '刪除' }[op.kind];
-    return name + '「' + e.category + ' $' + fmt(e.amount) + '」';
+    return name + '「' + e.category + (e.sub ? ' › ' + e.sub : '') + ' $' + fmt(e.amount) + '」';
   }
 
   function paintHistory() {
@@ -232,7 +257,7 @@
       if (g.exp) sums.appendChild(h('span', { class: 'exp', text: '支 -' + fmt(g.exp) }));
       var card = h('div', { class: 'day-card' });
       g.items.forEach(function (e) {
-        var mid = h('span', { class: 'mid' }, h('span', { class: 'cat', text: e.category }));
+        var mid = h('span', { class: 'mid' }, h('span', { class: 'cat', text: e.sub ? e.category + ' › ' + e.sub : e.category }));
         if (e.note) mid.appendChild(h('span', { class: 'memo', text: e.note }));
         var btn = h('button', { class: 'item', type: 'button' },
           h('span', { class: 'ico', text: iconOf(e.type, e.category) }),
@@ -274,8 +299,8 @@
   /* ---------- 新增 / 編輯 ---------- */
   function openForm(entry) {
     form = entry
-      ? { id: entry.id, type: entry.type, category: entry.category, expr: String(entry.amount) }
-      : { id: null, type: 'expense', category: '', expr: '' };
+      ? { id: entry.id, type: entry.type, category: entry.category, sub: entry.sub || '', expr: String(entry.amount) }
+      : { id: null, type: 'expense', category: '', sub: '', expr: '' };
     $('#f-date').value = entry ? entry.date : ymd(new Date());
     $('#f-note').value = entry ? entry.note || '' : '';
     $('#s-title').textContent = entry ? '編輯帳目' : '新增一筆';
@@ -290,11 +315,32 @@
     });
     var wrap = $('#f-cats');
     wrap.textContent = '';
-    CATS[form.type].forEach(function (c) {
+    var list = CATS[form.type].slice();
+    // 編輯舊帳目時，類別若已被刪除仍要能看到並保留，避免存檔時被默默改掉
+    if (form.category && !list.some(function (c) { return c[0] === form.category; })) list.push([form.category, '📝']);
+    if (!list.length) wrap.appendChild(h('p', { class: 'cats-empty', text: '尚無類別，請到選單的類別編輯器新增' }));
+    list.forEach(function (c) {
       var btn = h('button', { class: 'cat-btn', type: 'button', 'aria-pressed': String(form.category === c[0]) },
         h('span', { class: 'e', text: c[1] }), h('span', { text: c[0] }));
-      btn.addEventListener('click', function () { form.category = c[0]; paintForm(); });
+      btn.addEventListener('click', function () {
+        if (form.category !== c[0]) form.sub = '';
+        form.category = c[0];
+        paintForm();
+        var sw = $('#f-subs');
+        if (!sw.hidden) sw.scrollIntoView({ block: 'nearest' }); // 子類別在長長的類別格下方，選完要讓它露出來
+      });
       wrap.appendChild(btn);
+    });
+    var subWrap = $('#f-subs');
+    subWrap.textContent = '';
+    var cur = catData[form.type].filter(function (c) { return c.name === form.category; })[0];
+    var subs = cur ? cur.subs.slice() : [];
+    if (form.sub && subs.indexOf(form.sub) < 0) subs.push(form.sub);
+    subWrap.hidden = !subs.length;
+    subs.forEach(function (name) {
+      var b = h('button', { class: 'sub-btn', type: 'button', 'aria-pressed': String(form.sub === name), text: name });
+      b.addEventListener('click', function () { form.sub = form.sub === name ? '' : name; paintForm(); });
+      subWrap.appendChild(b);
     });
     paintCalc();
   }
@@ -313,6 +359,7 @@
     var b = ev.target.closest('button');
     if (!b || b.dataset.type === form.type) return;
     form.type = b.dataset.type;
+    form.sub = '';
     if (!CATS[form.type].some(function (c) { return c[0] === form.category; })) form.category = '';
     paintForm();
   });
@@ -342,10 +389,12 @@
       if (e) {
         var before = copy(e);
         e.date = date; e.type = form.type; e.category = form.category; e.amount = amount; e.note = note;
+        if (form.sub) e.sub = form.sub; else delete e.sub;
         record({ kind: 'edit', before: before, after: copy(e) });
       }
     } else {
       var fresh = { id: uid(), date: date, type: form.type, category: form.category, amount: amount, note: note, createdAt: Date.now() };
+      if (form.sub) fresh.sub = form.sub;
       entries.push(fresh);
       record({ kind: 'add', entry: copy(fresh) });
     }
@@ -447,13 +496,17 @@
     }
     if (text == null) return;
 
-    var list;
-    try { list = Backup.parse(text); } catch (e) { toast('備份檔格式不正確'); return; }
+    var parsed;
+    try { parsed = Backup.parse(text); } catch (e) { toast('備份檔格式不正確'); return; }
+    var list = parsed.entries;
 
     var have = {};
     entries.forEach(function (e) { have[e.id] = true; });
     var added = 0;
     list.forEach(function (e) { if (!have[e.id]) { entries.push(e); added++; } });
+    Categories.merge(catData, parsed.categories);
+    Categories.ensureUsed(catData, entries);
+    await persistCats();
     undoStack.length = 0; // 還原是整批匯入，不納入復原
     redoStack.length = 0;
     paintHistory();
@@ -467,7 +520,24 @@
   /* ---------- 側邊選單與財務報表 ---------- */
   window.BK = {
     CATS: CATS, entries: entries, fmt: fmt, h: h, iconOf: iconOf, toast: toast,
-    openOverlay: openOverlay, closeOverlay: closeOverlay
+    openOverlay: openOverlay, closeOverlay: closeOverlay,
+    catData: function () { return catData; },
+    // 類別有變動後呼叫；改名會動到帳目（entriesChanged），此時復原紀錄已失效，須清空
+    catsChanged: async function (opts) {
+      await saveCats();
+      if (opts && opts.entriesChanged) {
+        undoStack.length = 0;
+        redoStack.length = 0;
+        paintHistory();
+        await Store.save();
+      }
+      render();
+    },
+    reportCats: function () {
+      var v = Categories.withUsed(catData, entries), out = {};
+      ['expense', 'income'].forEach(function (t) { out[t] = v[t].map(function (c) { return [c.name, c.icon]; }); });
+      return out;
+    }
   };
 
   function setDrawer(open) {
@@ -481,18 +551,29 @@
     if (!b) return;
     setDrawer(false);
     if (b.dataset.go === 'report') Report.open();
+    else if (b.dataset.go === 'catedit') CatEditor.open();
     else if (b.dataset.go === 'settings') $('#btn-settings').click();
   });
 
   /* ---------- 啟動 ---------- */
   async function start() {
     await Store.init();
+    var rawCats = await Store.kvGet('categories');
+    if (!rawCats) { try { rawCats = JSON.parse(localStorage.getItem(CATS_LS)); } catch (e) { rawCats = null; } }
+    catData = Categories.normalize(rawCats);
+    syncCats();
+    // 舊帳目的「投資」→「股票」只做一次（之後使用者可以自己建立名為「投資」的類別）
+    if (!(await Store.kvGet('migrated.invest'))) {
+      await Store.kvSet('migrated.invest', true);
+      if (migrateCats(entries)) { await Store.save(); Backup.bump(); }
+    }
     await Backup.init(function () { return entries; }, function () {
       if (openEl && openEl.id === 'settings') paintSettings();
       updateBanner();
-    });
+    }, function () { return catData; });
     render();
     if (window.Report) Report.init();
+    if (window.CatEditor) CatEditor.init();
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').then(function (reg) {
         // 新版已下載完、等待切換：提示使用者
