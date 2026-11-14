@@ -1,0 +1,4 @@
+# 備份檔不要進 repo（Pages 是公開的）
+*.json.bak
+bookkeeper-backup*.json
+.DS_Store

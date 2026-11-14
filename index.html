@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2e7d5b">
+  <title>記帳</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="top">
+      <h1>記帳</h1>
+      <button id="btn-settings" class="icon-btn" aria-label="設定與備份">⚙️</button>
+    </header>
+
+    <section class="summary" aria-label="本月摘要">
+      <div class="sum-title" id="sum-title"></div>
+      <div class="sum-grid">
+        <div><span>收入</span><b id="sum-inc" class="inc"></b></div>
+        <div><span>支出</span><b id="sum-exp" class="exp"></b></div>
+        <div><span>結餘</span><b id="sum-bal"></b></div>
+      </div>
+    </section>
+
+    <div id="banner" class="banner" hidden>
+      <span id="banner-text"></span>
+      <button id="banner-act" class="banner-act"></button>
+      <button id="banner-x" class="banner-x" aria-label="關閉提示">✕</button>
+    </div>
+
+    <main id="list"></main>
+  </div>
+
+  <button id="fab" aria-label="新增一筆帳">＋</button>
+
+  <!-- 新增 / 編輯 -->
+  <div id="sheet" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="s-title">
+    <div class="sheet-top">
+      <button id="s-close" class="icon-btn" aria-label="取消">✕</button>
+      <h2 id="s-title">新增一筆</h2>
+      <button id="s-del" class="txt-btn danger" hidden>刪除</button>
+    </div>
+    <div class="sheet-body">
+      <div class="row">
+        <label for="f-date">日期</label>
+        <input type="date" id="f-date">
+      </div>
+      <div class="seg" id="f-type" role="group" aria-label="收支類型">
+        <button type="button" data-type="expense">支出</button>
+        <button type="button" data-type="income">收入</button>
+      </div>
+      <div class="cats" id="f-cats"></div>
+      <input id="f-note" type="text" placeholder="備註（選填）" maxlength="60" autocomplete="off">
+    </div>
+    <div class="calc">
+      <div class="calc-disp">
+        <div id="c-res" class="c-res"></div>
+        <div id="c-expr" class="c-expr">0</div>
+      </div>
+      <div class="keys" id="keys">
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button data-k="÷" class="op">÷</button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button data-k="×" class="op">×</button>
+        <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button data-k="−" class="op">−</button>
+        <button data-k=".">.</button><button data-k="0">0</button><button data-k="back" aria-label="退格">⌫</button><button data-k="+" class="op">+</button>
+        <button data-k="C" class="fn">C</button><button data-k="=" class="fn">=</button><button data-k="save" class="save">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 設定與備份 -->
+  <div id="settings" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="st-title">
+    <div class="sheet-top">
+      <button id="st-close" class="icon-btn" aria-label="關閉">✕</button>
+      <h2 id="st-title">設定與備份</h2>
+      <span></span>
+    </div>
+    <div class="sheet-body">
+      <p class="note">所有帳目只存在這支手機的瀏覽器裡，不會上傳到任何地方。</p>
+      <div class="card" id="st-status"></div>
+      <div class="btn-col">
+        <button id="st-link" class="btn primary">設定自動備份檔</button>
+        <button id="st-now" class="btn">立即備份</button>
+        <button id="st-export" class="btn">匯出下載 JSON</button>
+        <button id="st-restore" class="btn">從備份檔還原</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <input type="file" id="file-input" accept="application/json,.json" hidden>
+
+  <script src="calc.js"></script>
+  <script src="store.js"></script>
+  <script src="backup.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
