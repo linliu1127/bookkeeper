@@ -1,5 +1,5 @@
 // 網路優先、失敗時用快取：線上時永遠拿到最新版，離線時仍可開啟。
-const CACHE = 'bookkeeper-v1';
+const CACHE = 'bookkeeper-v2';
 const ASSETS = [
   './', 'index.html', 'style.css', 'calc.js', 'store.js', 'backup.js', 'app.js',
   'manifest.json', 'icon-192.png', 'icon-512.png'
@@ -21,7 +21,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   e.respondWith(
-    fetch(req)
+    fetch(req, { cache: 'no-cache' }) // 略過瀏覽器 HTTP 快取，避免新舊檔案混用
       .then((res) => {
         if (res.ok) {
           const copy = res.clone();
