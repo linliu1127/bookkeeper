@@ -35,8 +35,23 @@ var Backup = (function () {
     return n > 0 ? n : 0;
   }
 
+  var PENDING_KEY = 'bookkeeper.pending';
+
+  // 上次備份後，新增 / 修改 / 刪除了幾次
+  function pending() {
+    return Math.max(0, Number(localStorage.getItem(PENDING_KEY)) || 0);
+  }
+
+  function bump() {
+    try { localStorage.setItem(PENDING_KEY, String(pending() + 1)); } catch (e) { /* ignore */ }
+    listener();
+  }
+
   function markDone() {
-    try { localStorage.setItem(LAST_KEY, String(Date.now())); } catch (e) { /* ignore */ }
+    try {
+      localStorage.setItem(LAST_KEY, String(Date.now()));
+      localStorage.setItem(PENDING_KEY, '0');
+    } catch (e) { /* ignore */ }
   }
 
   function status() {
@@ -46,6 +61,7 @@ var Backup = (function () {
       name: handle ? handle.name : '',
       needsPermission: !!handle && perm !== 'granted',
       last: lastTime(),
+      pending: pending(),
       error: lastError
     };
   }
@@ -157,7 +173,9 @@ var Backup = (function () {
     var blob = new Blob([payload()], { type: 'application/json' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'bookkeeper-backup.json';
+    var d = new Date();
+    var p = function (n) { return n < 10 ? '0' + n : '' + n; };
+    a.download = 'bookkeeper-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + '.json';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -167,7 +185,7 @@ var Backup = (function () {
   }
 
   return {
-    init: init, supported: supported, status: status, shouldAsk: shouldAsk,
+    init: init, supported: supported, status: status, shouldAsk: shouldAsk, bump: bump,
     requestPermission: requestPermission, write: write, schedule: schedule,
     linkFile: linkFile, readText: readText, parse: parse, exportDownload: exportDownload
   };

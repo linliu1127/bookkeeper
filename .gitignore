@@ -2,3 +2,4 @@
 *.json.bak
 bookkeeper-backup*.json
 .DS_Store
+bookkeeper-*.json

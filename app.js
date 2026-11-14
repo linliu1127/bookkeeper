@@ -6,7 +6,6 @@
     income: [['薪水', '💼'], ['股息', '📈'], ['獎金', '🎁'], ['投資', '💹'], ['其他', '💰']]
   };
   var WEEK = ['日', '一', '二', '三', '四', '五', '六'];
-  var STALE_DAYS = 7;
 
   var entries = Store.entries;
   var form = null; // { id, type, category, expr }
@@ -133,17 +132,10 @@
       msg = '換手機或資料不見了？可以從備份檔還原。';
       label = '還原';
       act = doRestore;
-    } else if (!st.linked) {
-      var days = st.last ? (Date.now() - st.last) / 86400000 : Infinity;
-      if (st.supported) {
-        msg = '尚未設定自動備份。';
-        label = '設定';
-        act = doLink;
-      } else if (days > STALE_DAYS) {
-        msg = '已經很久沒備份了。';
-        label = '匯出';
-        act = function () { Backup.exportDownload(); toast('已下載備份檔'); };
-      }
+    } else if (!st.linked && st.pending > 0) {
+      msg = '有 ' + st.pending + ' 筆新增或變更還沒備份。';
+      label = '備份';
+      act = function () { Backup.exportDownload(); toast('已下載備份檔'); };
     }
     if (!msg || bannerDismissed) { b.hidden = true; bannerAction = null; return; }
     $('#banner-text').textContent = msg;
@@ -227,6 +219,8 @@
       entries.push({ id: uid(), date: date, type: form.type, category: form.category, amount: amount, note: note, createdAt: Date.now() });
     }
     closeOverlay();
+    bannerDismissed = false;
+    Backup.bump();
     render();
     await Store.save();
     permP.then(function () { Backup.schedule(); });
@@ -238,6 +232,8 @@
     var i = entries.findIndex(function (x) { return x.id === form.id; });
     if (i >= 0) entries.splice(i, 1);
     closeOverlay();
+    bannerDismissed = false;
+    Backup.bump();
     render();
     await Store.save();
     Backup.schedule();
@@ -259,6 +255,7 @@
     line('備份檔', st.linked ? st.name : (st.supported ? '尚未設定' : '此瀏覽器不支援自動寫檔'));
     if (st.linked) line('授權', st.needsPermission ? '待授權（下次按儲存時會詢問）' : '已授權');
     line('上次備份', timeText(st.last));
+    line('未備份的變更', st.pending + ' 筆');
     if (st.error) line('錯誤', st.error);
     line('帳目筆數', entries.length + ' 筆');
     $('#st-link').hidden = !st.supported;
