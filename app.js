@@ -8,6 +8,7 @@
   var WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 
   var entries = Store.entries;
+  var view = { year: new Date().getFullYear(), month: new Date().getMonth() + 1 }; // month 0 = 整年
   var form = null; // { id, type, category, expr }
   var openEl = null;
   var bannerDismissed = false;
@@ -93,6 +94,7 @@
     else if (op.kind === 'del') putEntry(op.entry);
     else putEntry(op.before);
     redoStack.push(op);
+    focusDate((op.before || op.entry).date);
     toast('已復原：' + describe(op));
     await afterChange();
   }
@@ -104,6 +106,7 @@
     else if (op.kind === 'del') removeById(op.entry.id);
     else putEntry(op.after);
     undoStack.push(op);
+    focusDate((op.after || op.entry).date);
     toast('已重做：' + describe(op));
     await afterChange();
   }
@@ -124,15 +127,63 @@
     if (openEl) { openEl.hidden = true; openEl = null; }
   });
 
+  /* ---------- 期間選擇（某月 / 整年） ---------- */
+  function prefix() { return view.year + '-' + (view.month ? pad(view.month) + '-' : ''); }
+
+  function focusDate(d) {
+    var y = Number(d.slice(0, 4)), m = Number(d.slice(5, 7));
+    if (view.year !== y || (view.month && view.month !== m)) {
+      view.year = y;
+      if (view.month) view.month = m;
+    }
+  }
+
+  function buildPeriod() {
+    var thisYear = new Date().getFullYear();
+    var min = thisYear, max = thisYear;
+    entries.forEach(function (e) {
+      var y = Number(e.date.slice(0, 4));
+      if (y < min) min = y;
+      if (y > max) max = y;
+    });
+    min = Math.min(min, view.year);
+    max = Math.max(max, view.year);
+    var ys = $('#sel-year');
+    ys.textContent = '';
+    for (var y = max; y >= min; y--) ys.appendChild(h('option', { value: String(y), text: y + ' 年' }));
+    ys.value = String(view.year);
+
+    var ms = $('#sel-month');
+    if (!ms.options.length) {
+      ms.appendChild(h('option', { value: '0', text: '整年' }));
+      for (var m = 1; m <= 12; m++) ms.appendChild(h('option', { value: String(m), text: m + ' 月' }));
+    }
+    ms.value = String(view.month);
+  }
+
+  $('#sel-year').addEventListener('change', function () { view.year = Number(this.value); render(); });
+  $('#sel-month').addEventListener('change', function () { view.month = Number(this.value); render(); });
+
+  function step(dir) {
+    if (!view.month) { view.year += dir; }
+    else {
+      view.month += dir;
+      if (view.month < 1) { view.month = 12; view.year--; }
+      if (view.month > 12) { view.month = 1; view.year++; }
+    }
+    render();
+  }
+  $('#p-prev').addEventListener('click', function () { step(-1); });
+  $('#p-next').addEventListener('click', function () { step(1); });
+
   /* ---------- 列表 ---------- */
   function render() {
     var now = new Date();
-    var ym = ymd(now).slice(0, 7);
+    var pre = prefix();
+    var visible = entries.filter(function (e) { return e.date.indexOf(pre) === 0; });
     var inc = 0, exp = 0;
-    entries.forEach(function (e) {
-      if (e.date.indexOf(ym) === 0) { if (e.type === 'income') inc += e.amount; else exp += e.amount; }
-    });
-    $('#sum-title').textContent = now.getFullYear() + ' 年 ' + (now.getMonth() + 1) + ' 月';
+    visible.forEach(function (e) { if (e.type === 'income') inc += e.amount; else exp += e.amount; });
+    buildPeriod();
     $('#sum-inc').textContent = '$' + fmt(inc);
     $('#sum-exp').textContent = '$' + fmt(exp);
     var bal = inc - exp;
@@ -150,7 +201,15 @@
       return;
     }
 
-    var sorted = entries.slice().sort(function (a, b) {
+    if (!visible.length) {
+      list.appendChild(h('div', { class: 'empty' },
+        h('b', { text: view.month ? '這個月沒有帳目' : '這一年沒有帳目' }),
+        h('span', { text: '可以切換上方的月份或年份' })));
+      updateBanner();
+      return;
+    }
+
+    var sorted = visible.slice().sort(function (a, b) {
       if (a.date !== b.date) return a.date < b.date ? 1 : -1;
       return (b.createdAt || 0) - (a.createdAt || 0);
     });
@@ -289,6 +348,7 @@
       entries.push(fresh);
       record({ kind: 'add', entry: copy(fresh) });
     }
+    focusDate(date);
     closeOverlay();
     bannerDismissed = false;
     Backup.bump();

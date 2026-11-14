@@ -21,8 +21,13 @@
       </div>
     </header>
 
-    <section class="summary" aria-label="本月摘要">
-      <div class="sum-title" id="sum-title"></div>
+    <section class="summary" aria-label="所選期間摘要">
+      <div class="period">
+        <button id="p-prev" class="icon-btn sm" aria-label="上一期">‹</button>
+        <select id="sel-year" aria-label="年份"></select>
+        <select id="sel-month" aria-label="月份（或整年）"></select>
+        <button id="p-next" class="icon-btn sm" aria-label="下一期">›</button>
+      </div>
       <div class="sum-grid">
         <div><span>收入</span><b id="sum-inc" class="inc"></b></div>
         <div><span>支出</span><b id="sum-exp" class="exp"></b></div>
