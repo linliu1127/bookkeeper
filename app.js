@@ -464,6 +464,26 @@
     Backup.schedule();
   }
 
+  /* ---------- 側邊選單與財務報表 ---------- */
+  window.BK = {
+    CATS: CATS, entries: entries, fmt: fmt, h: h, iconOf: iconOf, toast: toast,
+    openOverlay: openOverlay, closeOverlay: closeOverlay
+  };
+
+  function setDrawer(open) {
+    $('#drawer').hidden = !open;
+    $('#btn-menu').setAttribute('aria-expanded', String(open));
+  }
+  $('#btn-menu').addEventListener('click', function () { setDrawer($('#drawer').hidden); });
+  $('#drawer-scrim').addEventListener('click', function () { setDrawer(false); });
+  $('.drawer-panel').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button');
+    if (!b) return;
+    setDrawer(false);
+    if (b.dataset.go === 'report') Report.open();
+    else if (b.dataset.go === 'settings') $('#btn-settings').click();
+  });
+
   /* ---------- 啟動 ---------- */
   async function start() {
     await Store.init();
@@ -472,6 +492,7 @@
       updateBanner();
     });
     render();
+    if (window.Report) Report.init();
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () { /* http 環境下不支援 */ });
   }
   start();

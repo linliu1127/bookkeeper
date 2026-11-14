@@ -1,7 +1,7 @@
 // 網路優先、失敗時用快取：線上時永遠拿到最新版，離線時仍可開啟。
-const CACHE = 'bookkeeper-v2';
+const CACHE = 'bookkeeper-v3';
 const ASSETS = [
-  './', 'index.html', 'style.css', 'calc.js', 'store.js', 'backup.js', 'app.js',
+  './', 'index.html', 'style.css', 'calc.js', 'store.js', 'backup.js', 'report-core.js', 'app.js', 'report.js',
   'manifest.json', 'icon-192.png', 'icon-512.png'
 ];
 
