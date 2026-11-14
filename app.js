@@ -46,6 +46,71 @@
     toastTimer = setTimeout(function () { t.hidden = true; }, 2600);
   }
 
+  /* ---------- 復原 / 重做（記錄操作，僅限本次開啟期間） ---------- */
+  var MAX_HISTORY = 100;
+  var undoStack = [];
+  var redoStack = [];
+
+  function copy(e) { return Object.assign({}, e); }
+  function indexOfId(id) { return entries.findIndex(function (x) { return x.id === id; }); }
+  function removeById(id) { var i = indexOfId(id); if (i >= 0) entries.splice(i, 1); }
+  function putEntry(e) {
+    var i = indexOfId(e.id);
+    if (i >= 0) entries[i] = copy(e); else entries.push(copy(e));
+  }
+
+  function describe(op) {
+    var e = op.after || op.entry;
+    var name = { add: '新增', edit: '編輯', del: '刪除' }[op.kind];
+    return name + '「' + e.category + ' $' + fmt(e.amount) + '」';
+  }
+
+  function paintHistory() {
+    $('#btn-undo').disabled = !undoStack.length;
+    $('#btn-redo').disabled = !redoStack.length;
+  }
+
+  function record(op) {
+    undoStack.push(op);
+    if (undoStack.length > MAX_HISTORY) undoStack.shift();
+    redoStack.length = 0;
+    paintHistory();
+  }
+
+  async function afterChange() {
+    bannerDismissed = false;
+    Backup.bump();
+    render();
+    paintHistory();
+    await Store.save();
+    Backup.schedule();
+  }
+
+  async function undo() {
+    var op = undoStack.pop();
+    if (!op) return;
+    if (op.kind === 'add') removeById(op.entry.id);
+    else if (op.kind === 'del') putEntry(op.entry);
+    else putEntry(op.before);
+    redoStack.push(op);
+    toast('已復原：' + describe(op));
+    await afterChange();
+  }
+
+  async function redo() {
+    var op = redoStack.pop();
+    if (!op) return;
+    if (op.kind === 'add') putEntry(op.entry);
+    else if (op.kind === 'del') removeById(op.entry.id);
+    else putEntry(op.after);
+    undoStack.push(op);
+    toast('已重做：' + describe(op));
+    await afterChange();
+  }
+
+  $('#btn-undo').addEventListener('click', undo);
+  $('#btn-redo').addEventListener('click', redo);
+
   /* ---------- 全螢幕頁面（支援 Android 返回鍵） ---------- */
   function openOverlay(el) {
     el.hidden = false;
@@ -214,9 +279,15 @@
 
     if (form.id) {
       var e = entries.filter(function (x) { return x.id === form.id; })[0];
-      if (e) { e.date = date; e.type = form.type; e.category = form.category; e.amount = amount; e.note = note; }
+      if (e) {
+        var before = copy(e);
+        e.date = date; e.type = form.type; e.category = form.category; e.amount = amount; e.note = note;
+        record({ kind: 'edit', before: before, after: copy(e) });
+      }
     } else {
-      entries.push({ id: uid(), date: date, type: form.type, category: form.category, amount: amount, note: note, createdAt: Date.now() });
+      var fresh = { id: uid(), date: date, type: form.type, category: form.category, amount: amount, note: note, createdAt: Date.now() };
+      entries.push(fresh);
+      record({ kind: 'add', entry: copy(fresh) });
     }
     closeOverlay();
     bannerDismissed = false;
@@ -230,7 +301,10 @@
   $('#s-del').addEventListener('click', async function () {
     if (!form || !form.id || !confirm('確定要刪除這筆帳嗎？')) return;
     var i = entries.findIndex(function (x) { return x.id === form.id; });
-    if (i >= 0) entries.splice(i, 1);
+    if (i >= 0) {
+      record({ kind: 'del', entry: copy(entries[i]) });
+      entries.splice(i, 1);
+    }
     closeOverlay();
     bannerDismissed = false;
     Backup.bump();
@@ -319,6 +393,9 @@
     entries.forEach(function (e) { have[e.id] = true; });
     var added = 0;
     list.forEach(function (e) { if (!have[e.id]) { entries.push(e); added++; } });
+    undoStack.length = 0; // 還原是整批匯入，不納入復原
+    redoStack.length = 0;
+    paintHistory();
     await Store.save();
     render();
     paintSettings();

@@ -14,7 +14,11 @@
   <div id="app">
     <header class="top">
       <h1>記帳</h1>
-      <button id="btn-settings" class="icon-btn" aria-label="設定與備份">⚙️</button>
+      <div class="top-actions">
+        <button id="btn-undo" class="icon-btn" aria-label="復原" disabled>↶</button>
+        <button id="btn-redo" class="icon-btn" aria-label="重做" disabled>↷</button>
+        <button id="btn-settings" class="icon-btn" aria-label="設定與備份">⚙️</button>
+      </div>
     </header>
 
     <section class="summary" aria-label="本月摘要">
