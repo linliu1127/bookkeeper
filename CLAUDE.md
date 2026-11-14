@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **復原／重做**記錄的是操作（add/edit/del），只存在記憶體，關閉 App 即清空；「從備份還原」整批匯入不納入並會清空歷史。
 - **`backup.js`**：用 File System Access API（`showSaveFilePicker`）寫入使用者選定的固定 JSON 檔。**實測只有 Chrome Android 有此 API，Brave 沒有**；不支援時設定頁不會出現「設定自動備份檔」，退回手動匯出（檔名帶日期時間，避免 `(1)` 堆積）與「未備份變更」計數提醒。檔案授權的 `requestPermission` 必須在使用者點擊中呼叫，所以綁在「儲存」按鈕的同一次點擊（`onSave` 內須先於任何 `await`）。備份檔格式 `{version:1, exportedAt, entries}`，還原以 `id` 合併去重並逐筆驗證。
 - **`report-core.js` / `report.js`**：報表運算與繪圖分離。core 負責彙總、月份範圍、月序列、圓餅圖角度、座標刻度；`report.js` 用手寫 inline SVG 畫圓餅圖與折線圖。`monthlySeries(..., until)` 對「未來且無資料」的月份回傳 `null`（圖上斷線，不補 0）。圖表配色是 `style.css` 內 `--c1..--c8`／`--c-other`（已用 dataviz 技能的 validate_palette 驗證，順序固定）；超過 8 類時圓餅圖合併尾端成灰色，但下方表格仍逐一列出。
-- **`sw.js`**：網路優先、失敗用快取，`fetch(..., {cache:'no-cache'})` 以避開 GitHub Pages 的 10 分鐘 HTTP 快取造成新舊檔案混用。**新增或改名任何要離線使用的檔案時，必須同步更新 `ASSETS` 並遞增 `CACHE` 版本字串**，否則舊使用者拿不到。
+- **`sw.js`**：快取優先（離線、弱網秒開）。更新靠遞增 `CACHE`：新版整批抓進新快取後進入等待，`app.js` 偵測到就顯示「有新版可用」，使用者點「立即更新」才 `SKIP_WAITING` 並重載（避免新舊檔混用）。**新增或改名任何要離線使用的檔案、或改了任何已快取的檔案，都必須同步更新 `ASSETS` 並遞增 `CACHE`**，否則使用者永遠停在舊版。本機開發看不到變更時請遞增 CACHE 或在 DevTools 勾 Update on reload。
 
 ## 注意事項
 

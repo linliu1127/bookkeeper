@@ -265,3 +265,12 @@ input[type=text] { width: 100%; }
 .line-chart .halo { fill-opacity: 1; }
 .line-chart .cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
 .line-chart .dlabel { fill: var(--text); font-size: 11px; paint-order: stroke; stroke: var(--card); stroke-width: 3px; stroke-linejoin: round; }
+
+/* ---------- 新版提示 ---------- */
+.update-bar {
+  position: fixed; z-index: 40; left: 12px; right: 12px; top: calc(10px + env(safe-area-inset-top));
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 8px 8px 16px;
+  box-shadow: var(--shadow); font-weight: 600;
+}
+.update-bar .btn { padding: 8px 14px; }

@@ -493,7 +493,31 @@
     });
     render();
     if (window.Report) Report.init();
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () { /* http 環境下不支援 */ });
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
+        // 新版已下載完、等待切換：提示使用者
+        function offer(w) {
+          var bar = h('div', { class: 'update-bar' },
+            h('span', { text: '有新版可用' }),
+            h('button', { class: 'btn primary', text: '立即更新' }));
+          bar.querySelector('button').addEventListener('click', function () { w.postMessage('SKIP_WAITING'); });
+          document.body.appendChild(bar);
+        }
+        if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
+        reg.addEventListener('updatefound', function () {
+          var w = reg.installing;
+          w.addEventListener('statechange', function () {
+            if (w.state === 'installed' && navigator.serviceWorker.controller) offer(w);
+          });
+        });
+        var reloaded = !navigator.serviceWorker.controller; // 首次安裝取得控制權時不重載
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (reloaded) return;
+          reloaded = true;
+          location.reload();
+        });
+      }).catch(function () { /* http 環境下不支援 */ });
+    }
   }
   start();
 })();
