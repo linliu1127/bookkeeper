@@ -22,6 +22,19 @@
     Backup.schedule();
     await persistCats();
   }
+  // 預算：{year, month, cats}，存法同類別（IndexedDB + localStorage 保險副本）
+  var BUDGETS_LS = 'bookkeeper.budgets';
+  var budgets = BudgetCore.empty();
+  async function persistBudgets() {
+    try { localStorage.setItem(BUDGETS_LS, JSON.stringify(budgets)); } catch (e) { /* 保險用，失敗就算了 */ }
+    await Store.kvSet('budgets', budgets);
+  }
+  async function saveBudgets() {
+    Backup.bump();
+    Backup.schedule();
+    await persistBudgets();
+    render();
+  }
   // 類別改名對照：舊帳目只在第一次啟動時轉成新名稱（見 start()）
   var RENAMES = { '投資': '股票' };
   function migrateCats(list) {
@@ -202,6 +215,35 @@
   $('#p-prev').addEventListener('click', function () { step(-1); });
   $('#p-next').addEventListener('click', function () { step(1); });
 
+  /* ---------- 預算摘要列（列表頂端，點一下進預算頁） ---------- */
+  function budgetLine(label, spentAmt, budget) {
+    var p = BudgetCore.progress(spentAmt, budget);
+    var fill = h('span', { class: 'bg-fill' + (p.over ? ' over' : '') });
+    fill.style.width = p.pct + '%';
+    return h('span', { class: 'bb-line' },
+      h('span', { class: 'bb-text' },
+        h('span', { text: label + ' $' + fmt(spentAmt) + ' / $' + fmt(budget) }),
+        h('span', { class: p.over ? 'over' : '', text: p.over ? '超支 $' + fmt(-p.left) : '剩 $' + fmt(p.left) })),
+      h('span', { class: 'bg-bar' }, fill));
+  }
+
+  function paintBudgetBar() {
+    var bar = $('#budget-bar');
+    bar.textContent = '';
+    var spentAmt;
+    if (view.month && budgets.month !== null) {
+      spentAmt = BudgetCore.spent(entries, { ym: view.year + '-' + pad(view.month) });
+      bar.appendChild(budgetLine(view.month + ' 月支出', spentAmt, budgets.month));
+    } else if (!view.month && budgets.year !== null) {
+      bar.appendChild(budgetLine(view.year + ' 年支出', BudgetCore.spentYear(entries, view.year), budgets.year));
+    } else if (view.month && budgets.year !== null) {
+      bar.appendChild(budgetLine(view.year + ' 年支出', BudgetCore.spentYear(entries, view.year), budgets.year));
+    } else {
+      bar.appendChild(h('span', { class: 'bb-empty', text: BudgetCore.isEmpty(budgets) ? '💰 設定預算 ›' : '💰 預算 ›' }));
+    }
+  }
+  $('#budget-bar').addEventListener('click', function () { if (window.Budget) Budget.open(); });
+
   /* ---------- 列表 ---------- */
   function render() {
     var now = new Date();
@@ -216,6 +258,7 @@
     var balEl = $('#sum-bal');
     balEl.textContent = (bal < 0 ? '-' : '') + '$' + fmt(Math.abs(bal));
     balEl.className = bal < 0 ? 'exp' : 'inc';
+    paintBudgetBar();
 
     var list = $('#list');
     list.textContent = '';
@@ -342,8 +385,31 @@
       b.addEventListener('click', function () { form.sub = form.sub === name ? '' : name; paintForm(); });
       subWrap.appendChild(b);
     });
+    paintFormBudget();
     paintCalc();
   }
+
+  // 選到支出類別時顯示：該類別本月已支出 / 月預算（月份依表單日期；編輯時扣掉自己那筆）
+  function paintFormBudget() {
+    var box = $('#f-budget');
+    box.textContent = '';
+    var date = $('#f-date').value;
+    if (!form || form.type !== 'expense' || !form.category || !/^\d{4}-\d{2}/.test(date)) { box.hidden = true; return; }
+    var ym = date.slice(0, 7);
+    var m = Number(ym.slice(5, 7));
+    function line(label, spentAmt, budget) {
+      var over = budget !== null && spentAmt > budget;
+      var txt = label + '已支出 $' + fmt(spentAmt);
+      if (budget === null) txt += '・未設定預算';
+      else txt += ' / 預算 $' + fmt(budget) + (over ? '（超支 $' + fmt(spentAmt - budget) + '）' : '（剩 $' + fmt(budget - spentAmt) + '）');
+      box.appendChild(h('div', { class: over ? 'over' : '', text: txt }));
+    }
+    var catBudget = Object.prototype.hasOwnProperty.call(budgets.cats, form.category) ? budgets.cats[form.category] : null;
+    line(form.category + ' ' + m + ' 月', BudgetCore.spent(entries, { ym: ym, category: form.category, excludeId: form.id }), catBudget);
+    if (budgets.month !== null) line('全部支出 ' + m + ' 月', BudgetCore.spent(entries, { ym: ym, excludeId: form.id }), budgets.month);
+    box.hidden = false;
+  }
+  $('#f-date').addEventListener('change', paintFormBudget);
 
   function paintCalc() {
     $('#c-expr').textContent = form.expr || '0';
@@ -507,6 +573,7 @@
     Categories.merge(catData, parsed.categories);
     Categories.ensureUsed(catData, entries);
     await persistCats();
+    if (BudgetCore.merge(budgets, parsed.budgets)) await persistBudgets();
     undoStack.length = 0; // 還原是整批匯入，不納入復原
     redoStack.length = 0;
     paintHistory();
@@ -522,6 +589,8 @@
     CATS: CATS, entries: entries, fmt: fmt, h: h, iconOf: iconOf, toast: toast,
     openOverlay: openOverlay, closeOverlay: closeOverlay,
     catData: function () { return catData; },
+    budgets: function () { return budgets; },
+    saveBudgets: saveBudgets,
     // 類別有變動後呼叫；改名會動到帳目（entriesChanged），此時復原紀錄已失效，須清空
     catsChanged: async function (opts) {
       await saveCats();
@@ -552,6 +621,7 @@
     setDrawer(false);
     if (b.dataset.go === 'report') Report.open();
     else if (b.dataset.go === 'catedit') CatEditor.open();
+    else if (b.dataset.go === 'budget') Budget.open();
     else if (b.dataset.go === 'settings') $('#btn-settings').click();
   });
 
@@ -562,6 +632,9 @@
     if (!rawCats) { try { rawCats = JSON.parse(localStorage.getItem(CATS_LS)); } catch (e) { rawCats = null; } }
     catData = Categories.normalize(rawCats);
     syncCats();
+    var rawBudgets = await Store.kvGet('budgets');
+    if (!rawBudgets) { try { rawBudgets = JSON.parse(localStorage.getItem(BUDGETS_LS)); } catch (e) { rawBudgets = null; } }
+    budgets = BudgetCore.normalize(rawBudgets);
     // 舊帳目的「投資」→「股票」只做一次（之後使用者可以自己建立名為「投資」的類別）
     if (!(await Store.kvGet('migrated.invest'))) {
       await Store.kvSet('migrated.invest', true);
@@ -570,10 +643,11 @@
     await Backup.init(function () { return entries; }, function () {
       if (openEl && openEl.id === 'settings') paintSettings();
       updateBanner();
-    }, function () { return catData; });
+    }, function () { return catData; }, function () { return budgets; });
     render();
     if (window.Report) Report.init();
     if (window.CatEditor) CatEditor.init();
+    if (window.Budget) Budget.init();
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').then(function (reg) {
         // 新版已下載完、等待切換：提示使用者

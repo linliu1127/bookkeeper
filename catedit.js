@@ -57,6 +57,7 @@ var CatEditor = (function () {
           var wasOpen = openCat === c.name;
           var r = Categories.rename(data, BK().entries, tab, c.name, n);
           if (r.ok && wasOpen) openCat = String(n).trim();
+          if (r.ok && tab === 'expense' && BudgetCore.renameCat(BK().budgets(), c.name, String(n).trim())) BK().saveBudgets();
           apply(r, true);
         }, '改名：' + c.name),
         btn('刪除', 'ce-btn danger', function () {

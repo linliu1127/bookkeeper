@@ -305,3 +305,30 @@ input[type=text] { width: 100%; }
 .ce-addrow input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); font-size: 16px; }
 .ce-addrow .ce-icon { flex: 0 0 56px; text-align: center; }
 .ce-add { padding: 10px 14px; }
+
+/* ---------- 預算 ---------- */
+.bg-bar { display: block; height: 6px; border-radius: 3px; background: var(--key); overflow: hidden; }
+.bg-fill { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.bg-fill.over { background: var(--exp); }
+.over { color: var(--exp); }
+
+.budget-bar {
+  display: block; width: calc(100% - 32px); margin: 0 16px 12px; padding: 10px 14px; text-align: left;
+  background: var(--card); border-radius: 12px; box-shadow: var(--shadow); font-size: 14px;
+}
+.bb-line { display: flex; flex-direction: column; gap: 6px; }
+.bb-text { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+.bb-empty { color: var(--muted); }
+
+.budget-line { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.budget-line div + div { margin-top: 2px; }
+.budget-line .over { color: var(--exp); font-weight: 600; }
+
+.bg-card { display: flex; flex-direction: column; gap: 14px; }
+.card.bg-card div + div { margin-top: 0; }
+.bg-head { display: flex; align-items: center; gap: 10px; }
+.bg-label { flex: 1; min-width: 0; font-weight: 600; }
+.bg-head input[type=text] { width: 120px; flex: none; text-align: right; }
+.bg-info { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.bg-text { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.bg-text.over { color: var(--exp); }
