@@ -332,3 +332,29 @@ input[type=text] { width: 100%; }
 .bg-info { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .bg-text { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .bg-text.over { color: var(--exp); }
+
+/* 投資理財 */
+.iv-card, .iv-form { display: flex; flex-direction: column; gap: 8px; }
+.card.iv-card div + div, .card.iv-form div + div { margin-top: 0; }
+.iv-sum-title { font-weight: 700; }
+.iv-row { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
+.iv-row .k { color: var(--muted); flex: none; }
+.iv-row .v { text-align: right; min-width: 0; }
+.iv-row .v.inc { color: var(--inc); font-weight: 600; }
+.iv-sep { height: 1px; background: var(--line); margin: 4px 0; }
+.iv-dep { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; color: inherit; }
+.card.iv-dep div + div { margin-top: 0; }
+.iv-dep-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.iv-dep-name { font-weight: 700; font-size: 16px; min-width: 0; overflow-wrap: anywhere; }
+.iv-dep-sub { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.iv-badge { flex: none; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--key); color: var(--muted); }
+.iv-badge.active { color: var(--accent); }
+.iv-badge.matured { color: var(--exp); }
+.iv-badge.done { color: var(--inc); }
+.iv-field { display: flex; flex-direction: column; gap: 4px; }
+.iv-label { font-weight: 600; font-size: 14px; }
+.iv-hint { color: var(--muted); font-size: 12px; }
+.iv-field input[type=date] { flex: none; width: 100%; }
+.iv-check { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; }
+.iv-check input { width: 20px; height: 20px; flex: none; margin-top: 1px; }
+.iv-preview { font-variant-numeric: tabular-nums; }

@@ -52,6 +52,10 @@ var CatEditor = (function () {
         h('span', { class: 'ce-name', text: c.name }),
         h('span', { class: 'ce-count', text: c.subs.length ? c.subs.length + ' 個子類別' : '' }),
         btn('改名', 'ce-btn', function () {
+          if (tab === 'income' && c.name === InvestCore.CATEGORY) {
+            BK().toast('「' + c.name + '」與投資理財連動，不能改名');
+            return;
+          }
           var n = prompt('類別新名稱', c.name);
           if (n === null) return;
           var wasOpen = openCat === c.name;
@@ -74,6 +78,13 @@ var CatEditor = (function () {
       if (isOpen) {
         var subs = h('div', { class: 'ce-subs' });
         c.subs.forEach(function (s) {
+          if (BK().isManagedSub(tab, c.name, s)) {
+            // 由投資理財的定存自動產生：完結後會自動移除，改名請到投資區
+            subs.appendChild(h('div', { class: 'ce-sub' },
+              h('span', { class: 'ce-name', text: s }),
+              h('span', { class: 'ce-count', text: '定存・自動' })));
+            return;
+          }
           subs.appendChild(h('div', { class: 'ce-sub' },
             h('span', { class: 'ce-name', text: s }),
             btn('改名', 'ce-btn', function () {

@@ -114,6 +114,7 @@
       <button data-go="list">📒　流水帳</button>
       <button data-go="report">📊　財務報表</button>
       <button data-go="budget">💰　預算</button>
+      <button data-go="invest">📈　投資理財</button>
       <button data-go="catedit">🏷️　類別編輯器</button>
       <button data-go="settings">⚙️　設定與備份</button>
     </nav>
@@ -162,6 +163,23 @@
     <div class="sheet-body" id="bg-body"></div>
   </div>
 
+  <!-- 投資理財 -->
+  <div id="invest" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="iv-title">
+    <div class="sheet-top">
+      <button id="iv-close" class="icon-btn" aria-label="關閉">✕</button>
+      <h2 id="iv-title">投資理財</h2>
+      <span></span>
+    </div>
+    <div class="r-tabs-bar">
+      <div class="seg three" id="iv-tabs" role="group" aria-label="投資類型">
+        <button type="button" data-tab="deposit">定存</button>
+        <button type="button" data-tab="bond">債券</button>
+        <button type="button" data-tab="stock">股票</button>
+      </div>
+    </div>
+    <div class="sheet-body" id="iv-body"></div>
+  </div>
+
   <div id="toast" class="toast" hidden></div>
   <input type="file" id="file-input" accept="application/json,.json" hidden>
 
@@ -171,9 +189,11 @@
   <script src="backup.js"></script>
   <script src="report-core.js"></script>
   <script src="budget-core.js"></script>
+  <script src="invest-core.js"></script>
   <script src="app.js"></script>
   <script src="report.js"></script>
   <script src="catedit.js"></script>
   <script src="budget.js"></script>
+  <script src="invest.js"></script>
 </body>
 </html>

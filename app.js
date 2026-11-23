@@ -35,6 +35,48 @@
     await persistBudgets();
     render();
   }
+  // 投資理財（目前只有定存）：{version, deposits[]}，存法同預算。
+  // 與流水帳的連動見 invest-core.js：已領利息 = 收入›定存利息›label 的帳目加總（推導，不另存）
+  var INVEST_LS = 'bookkeeper.invest';
+  var invest = InvestCore.empty();
+  async function persistInvest() {
+    try { localStorage.setItem(INVEST_LS, JSON.stringify(invest)); } catch (e) { /* 保險用，失敗就算了 */ }
+    await Store.kvSet('invest', invest);
+  }
+  // 讓「收入›定存利息」的子類別 = 手動子類別 ∪ 進行中定存的 label − 已完結定存的 label。回傳類別清單是否有變
+  function syncDepositSubs() {
+    var active = invest.deposits.filter(function (d) { return !d.done; }).map(function (d) { return d.label; });
+    var all = invest.deposits.map(function (d) { return d.label; });
+    var cat = catData.income.filter(function (c) { return c.name === InvestCore.CATEGORY; })[0];
+    if (!cat) {
+      if (!active.length) return false;
+      cat = { name: InvestCore.CATEGORY, icon: '🏦', subs: [] };
+      catData.income.push(cat);
+    }
+    var next = cat.subs.filter(function (s) { return all.indexOf(s) < 0 || active.indexOf(s) >= 0; });
+    active.forEach(function (s) { if (next.indexOf(s) < 0) next.push(s); });
+    var changed = next.length !== cat.subs.length || next.some(function (s, i) { return s !== cat.subs[i]; });
+    cat.subs = next;
+    return changed;
+  }
+  async function saveInvest() {
+    Backup.bump();
+    Backup.schedule();
+    syncDepositSubs();
+    await persistCats(); // 投資區也會直接動類別清單（移除舊 label），一律存
+    await persistInvest();
+  }
+  // 新定存 label 要避開：所有定存、流水帳「定存利息」底下已用過的 sub、類別清單裡手動建的子類別
+  function labelTaken(exceptId) {
+    var taken = InvestCore.takenLabels(invest, entries, exceptId);
+    var cat = catData.income.filter(function (c) { return c.name === InvestCore.CATEGORY; })[0];
+    var own = invest.deposits.filter(function (d) { return d.id === exceptId; }).map(function (d) { return d.label; });
+    if (cat) cat.subs.forEach(function (s) {
+      var isDeposit = invest.deposits.some(function (d) { return d.label === s; });
+      if (!isDeposit && own.indexOf(s) < 0 && taken.indexOf(s) < 0) taken.push(s);
+    });
+    return taken;
+  }
   // 類別改名對照：舊帳目只在第一次啟動時轉成新名稱（見 start()）
   var RENAMES = { '投資': '股票' };
   function migrateCats(list) {
@@ -572,6 +614,8 @@
     list.forEach(function (e) { if (!have[e.id]) { entries.push(e); added++; } });
     Categories.merge(catData, parsed.categories);
     Categories.ensureUsed(catData, entries);
+    if (InvestCore.merge(invest, parsed.invest)) await persistInvest();
+    syncDepositSubs(); // ensureUsed 會把已完結定存的 sub 補回清單，須在其後修剪
     await persistCats();
     if (BudgetCore.merge(budgets, parsed.budgets)) await persistBudgets();
     undoStack.length = 0; // 還原是整批匯入，不納入復原
@@ -591,8 +635,46 @@
     catData: function () { return catData; },
     budgets: function () { return budgets; },
     saveBudgets: saveBudgets,
+    invest: function () { return invest; },
+    saveInvest: saveInvest,
+    labelTaken: labelTaken,
+    uid: uid, ymd: ymd,
+    // 定存的子類別由投資區管理，類別編輯器不可改名／刪除
+    isManagedSub: function (type, cat, sub) {
+      return type === 'income' && cat === InvestCore.CATEGORY && invest.deposits.some(function (d) { return d.label === sub; });
+    },
+    // 投資區登記領息：新增一筆收入帳目（可復原）
+    addEntry: async function (spec) {
+      var fresh = { id: uid(), date: spec.date, type: 'income', category: spec.category, amount: spec.amount, note: spec.note || '', createdAt: Date.now() };
+      if (spec.sub) fresh.sub = spec.sub;
+      entries.push(fresh);
+      record({ kind: 'add', entry: copy(fresh) });
+      await afterChange();
+    },
+    // 刪除定存時一併刪除利息帳目：每筆各記一筆 del，仍可逐筆復原
+    removeEntries: async function (ids) {
+      ids.forEach(function (id) {
+        var i = indexOfId(id);
+        if (i < 0) return;
+        record({ kind: 'del', entry: copy(entries[i]) });
+        entries.splice(i, 1);
+      });
+      await afterChange();
+    },
+    // 定存改名：把帳目的 sub 一併換掉。舊操作裡存的是舊名稱，須清空復原紀錄
+    relabelEntries: async function (from, to) {
+      entries.forEach(function (e) {
+        if (e.type === 'income' && e.category === InvestCore.CATEGORY && e.sub === from) e.sub = to;
+      });
+      undoStack.length = 0;
+      redoStack.length = 0;
+      paintHistory();
+      await Store.save();
+      render();
+    },
     // 類別有變動後呼叫；改名會動到帳目（entriesChanged），此時復原紀錄已失效，須清空
     catsChanged: async function (opts) {
+      syncDepositSubs(); // 使用者刪掉「定存利息」之類的操作後，仍要讓進行中定存的子類別回來
       await saveCats();
       if (opts && opts.entriesChanged) {
         undoStack.length = 0;
@@ -622,6 +704,7 @@
     if (b.dataset.go === 'report') Report.open();
     else if (b.dataset.go === 'catedit') CatEditor.open();
     else if (b.dataset.go === 'budget') Budget.open();
+    else if (b.dataset.go === 'invest') Invest.open();
     else if (b.dataset.go === 'settings') $('#btn-settings').click();
   });
 
@@ -635,6 +718,10 @@
     var rawBudgets = await Store.kvGet('budgets');
     if (!rawBudgets) { try { rawBudgets = JSON.parse(localStorage.getItem(BUDGETS_LS)); } catch (e) { rawBudgets = null; } }
     budgets = BudgetCore.normalize(rawBudgets);
+    var rawInvest = await Store.kvGet('invest');
+    if (!rawInvest) { try { rawInvest = JSON.parse(localStorage.getItem(INVEST_LS)); } catch (e) { rawInvest = null; } }
+    invest = InvestCore.normalize(rawInvest);
+    if (syncDepositSubs()) await persistCats();
     // 舊帳目的「投資」→「股票」只做一次（之後使用者可以自己建立名為「投資」的類別）
     if (!(await Store.kvGet('migrated.invest'))) {
       await Store.kvSet('migrated.invest', true);
@@ -643,11 +730,12 @@
     await Backup.init(function () { return entries; }, function () {
       if (openEl && openEl.id === 'settings') paintSettings();
       updateBanner();
-    }, function () { return catData; }, function () { return budgets; });
+    }, function () { return catData; }, function () { return budgets; }, function () { return invest; });
     render();
     if (window.Report) Report.init();
     if (window.CatEditor) CatEditor.init();
     if (window.Budget) Budget.init();
+    if (window.Invest) Invest.init();
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').then(function (reg) {
         // 新版已下載完、等待切換：提示使用者
