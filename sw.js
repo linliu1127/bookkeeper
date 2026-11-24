@@ -1,7 +1,7 @@
 // 快取優先：打開時直接用快取（離線、弱網都立刻開）。
 // 更新方式：sw.js 內容變動（遞增 CACHE）→ 背景把整批檔案抓進新快取 → 全部成功後才「等待中」，
 // 頁面提示「有新版」，使用者點了才切換，因此不會新舊檔案混用。
-const CACHE = 'bookkeeper-v10';
+const CACHE = 'bookkeeper-v11';
 const ASSETS = [
   './', 'index.html', 'style.css', 'calc.js', 'store.js', 'categories.js', 'backup.js', 'report-core.js', 'budget-core.js', 'invest-core.js', 'app.js', 'report.js', 'catedit.js', 'budget.js', 'invest.js',
   'manifest.json', 'icon-192.png', 'icon-512.png'

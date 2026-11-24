@@ -57,7 +57,7 @@ var Invest = (function () {
       var total = InvestCore.daysBetween(d.startDate, st.maturity);
       var passed = InvestCore.daysBetween(d.startDate, today());
       card.appendChild(bar(total > 0 ? passed / total * 100 : 0));
-      card.appendChild(h('div', { class: 'iv-dep-sub', text: '預期利息 ' + money(st.expected) + '・目前約 ' + money(st.accrued) }));
+      card.appendChild(h('div', { class: 'iv-dep-sub', text: '預期到期利息 ' + money(st.expected) + '・預期目前利息 ' + money(st.accrued) }));
     } else if (st.status === 'matured') {
       card.appendChild(h('div', { class: 'iv-dep-sub', text: '預期利息 ' + money(st.expected) + (st.paid.count ? '・已領 ' + money(st.paid.interest) : '・尚未登記領息') }));
     } else {
