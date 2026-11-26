@@ -10,6 +10,7 @@ var Backup = (function () {
   var getCats = function () { return null; };
   var getBudgets = function () { return null; };
   var getInvest = function () { return null; };
+  var getBonds = function () { return null; };
   var timer = null;
   var perm = 'unknown';
   var asked = false; // 本次開啟是否已自動詢問過授權
@@ -20,11 +21,12 @@ var Backup = (function () {
     return 'showSaveFilePicker' in window && 'showOpenFilePicker' in window;
   }
 
-  async function init(dataFn, onChange, catsFn, budgetsFn, investFn) {
+  async function init(dataFn, onChange, catsFn, budgetsFn, investFn, bondsFn) {
     getData = dataFn;
     if (catsFn) getCats = catsFn;
     if (budgetsFn) getBudgets = budgetsFn;
     if (investFn) getInvest = investFn;
+    if (bondsFn) getBonds = bondsFn;
     if (onChange) listener = onChange;
     handle = (await Store.kvGet('backupHandle')) || null;
     if (handle) {
@@ -33,7 +35,7 @@ var Backup = (function () {
   }
 
   function payload() {
-    return JSON.stringify({ version: 2, exportedAt: new Date().toISOString(), entries: getData(), categories: getCats(), budgets: getBudgets(), invest: getInvest() }, null, 1);
+    return JSON.stringify({ version: 2, exportedAt: new Date().toISOString(), entries: getData(), categories: getCats(), budgets: getBudgets(), invest: getInvest(), bonds: getBonds() }, null, 1);
   }
 
   function lastTime() {
@@ -180,7 +182,8 @@ var Backup = (function () {
       entries: entries,
       categories: Categories.normalize(Array.isArray(obj) ? null : obj.categories, true),
       budgets: BudgetCore.normalize(Array.isArray(obj) ? null : obj.budgets),
-      invest: InvestCore.normalize(Array.isArray(obj) ? null : obj.invest)
+      invest: InvestCore.normalize(Array.isArray(obj) ? null : obj.invest),
+      bonds: BondCore.normalize(Array.isArray(obj) ? null : obj.bonds)
     };
   }
 

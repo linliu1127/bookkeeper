@@ -43,14 +43,19 @@
     try { localStorage.setItem(INVEST_LS, JSON.stringify(invest)); } catch (e) { /* 保險用，失敗就算了 */ }
     await Store.kvSet('invest', invest);
   }
-  // 讓「收入›定存利息」的子類別 = 手動子類別 ∪ 進行中定存的 label − 已完結定存的 label。回傳類別清單是否有變
-  function syncDepositSubs() {
-    var active = invest.deposits.filter(function (d) { return !d.done; }).map(function (d) { return d.label; });
-    var all = invest.deposits.map(function (d) { return d.label; });
-    var cat = catData.income.filter(function (c) { return c.name === InvestCore.CATEGORY; })[0];
+  // 債券 ETF：{version, funds[], trades[]}，存法同上。配息 = 收入›債券›代號 的帳目加總（見 bond-core.js）
+  var BONDS_LS = 'bookkeeper.bonds';
+  var bonds = BondCore.empty();
+  async function persistBonds() {
+    try { localStorage.setItem(BONDS_LS, JSON.stringify(bonds)); } catch (e) { /* 保險用，失敗就算了 */ }
+    await Store.kvSet('bonds', bonds);
+  }
+  // 讓某個收入類別的子類別 = 手動子類別 ∪ active − (all − active)。回傳這個類別是否有變
+  function syncCat(name, icon, active, all) {
+    var cat = catData.income.filter(function (c) { return c.name === name; })[0];
     if (!cat) {
       if (!active.length) return false;
-      cat = { name: InvestCore.CATEGORY, icon: '🏦', subs: [] };
+      cat = { name: name, icon: icon, subs: [] };
       catData.income.push(cat);
     }
     var next = cat.subs.filter(function (s) { return all.indexOf(s) < 0 || active.indexOf(s) >= 0; });
@@ -59,10 +64,28 @@
     cat.subs = next;
     return changed;
   }
+  // 由投資區自動管理的連動子類別：
+  //  收入›定存利息 = 進行中定存的 label（已完結的移除，舊帳目的 sub 保留）
+  //  收入›債券     = 所有 ETF 的代號（賣光後仍可能入帳配息，刪除 ETF 才移除）
+  // 回傳類別清單是否有變
+  function syncManagedSubs() {
+    var active = invest.deposits.filter(function (d) { return !d.done; }).map(function (d) { return d.label; });
+    var all = invest.deposits.map(function (d) { return d.label; });
+    var codes = bonds.funds.map(function (f) { return f.code; });
+    var a = syncCat(InvestCore.CATEGORY, '🏦', active, all);
+    var b = syncCat(BondCore.CATEGORY, '📜', codes, codes);
+    return a || b;
+  }
+  async function saveBonds(quiet) {
+    if (!quiet) { Backup.bump(); Backup.schedule(); } // 只刷新價格時不算「未備份變更」
+    syncManagedSubs();
+    await persistCats();
+    await persistBonds();
+  }
   async function saveInvest() {
     Backup.bump();
     Backup.schedule();
-    syncDepositSubs();
+    syncManagedSubs();
     await persistCats(); // 投資區也會直接動類別清單（移除舊 label），一律存
     await persistInvest();
   }
@@ -615,7 +638,8 @@
     Categories.merge(catData, parsed.categories);
     Categories.ensureUsed(catData, entries);
     if (InvestCore.merge(invest, parsed.invest)) await persistInvest();
-    syncDepositSubs(); // ensureUsed 會把已完結定存的 sub 補回清單，須在其後修剪
+    if (BondCore.merge(bonds, parsed.bonds)) await persistBonds();
+    syncManagedSubs(); // ensureUsed 會把已完結定存的 sub 補回清單，須在其後修剪
     await persistCats();
     if (BudgetCore.merge(budgets, parsed.budgets)) await persistBudgets();
     undoStack.length = 0; // 還原是整批匯入，不納入復原
@@ -637,11 +661,16 @@
     saveBudgets: saveBudgets,
     invest: function () { return invest; },
     saveInvest: saveInvest,
+    bonds: function () { return bonds; },
+    saveBonds: saveBonds,
     labelTaken: labelTaken,
     uid: uid, ymd: ymd,
-    // 定存的子類別由投資區管理，類別編輯器不可改名／刪除
+    // 定存／債券的連動子類別由投資區管理，類別編輯器不可改名／刪除
     isManagedSub: function (type, cat, sub) {
-      return type === 'income' && cat === InvestCore.CATEGORY && invest.deposits.some(function (d) { return d.label === sub; });
+      if (type !== 'income') return false;
+      if (cat === InvestCore.CATEGORY) return invest.deposits.some(function (d) { return d.label === sub; });
+      if (cat === BondCore.CATEGORY) return bonds.funds.some(function (f) { return f.code === sub; });
+      return false;
     },
     // 投資區登記領息：新增一筆收入帳目（可復原）
     addEntry: async function (spec) {
@@ -674,7 +703,7 @@
     },
     // 類別有變動後呼叫；改名會動到帳目（entriesChanged），此時復原紀錄已失效，須清空
     catsChanged: async function (opts) {
-      syncDepositSubs(); // 使用者刪掉「定存利息」之類的操作後，仍要讓進行中定存的子類別回來
+      syncManagedSubs(); // 使用者刪掉「定存利息」之類的操作後，仍要讓進行中定存的子類別回來
       await saveCats();
       if (opts && opts.entriesChanged) {
         undoStack.length = 0;
@@ -721,7 +750,10 @@
     var rawInvest = await Store.kvGet('invest');
     if (!rawInvest) { try { rawInvest = JSON.parse(localStorage.getItem(INVEST_LS)); } catch (e) { rawInvest = null; } }
     invest = InvestCore.normalize(rawInvest);
-    if (syncDepositSubs()) await persistCats();
+    var rawBonds = await Store.kvGet('bonds');
+    if (!rawBonds) { try { rawBonds = JSON.parse(localStorage.getItem(BONDS_LS)); } catch (e) { rawBonds = null; } }
+    bonds = BondCore.normalize(rawBonds);
+    if (syncManagedSubs()) await persistCats();
     // 舊帳目的「投資」→「股票」只做一次（之後使用者可以自己建立名為「投資」的類別）
     if (!(await Store.kvGet('migrated.invest'))) {
       await Store.kvSet('migrated.invest', true);
@@ -730,7 +762,7 @@
     await Backup.init(function () { return entries; }, function () {
       if (openEl && openEl.id === 'settings') paintSettings();
       updateBanner();
-    }, function () { return catData; }, function () { return budgets; }, function () { return invest; });
+    }, function () { return catData; }, function () { return budgets; }, function () { return invest; }, function () { return bonds; });
     render();
     if (window.Report) Report.init();
     if (window.CatEditor) CatEditor.init();

@@ -1,5 +1,5 @@
 /* 投資理財頁：定存／債券／股票三個分頁。運算全在 invest-core.js，這裡只管畫面。
- * 目前只有定存（定期儲蓄存款・整存整付・按月複利）；債券、股票先留空。 */
+ * 定存（定期儲蓄存款・整存整付・按月複利）在這裡；債券交給 bond.js；股票先留空。 */
 var Invest = (function () {
   'use strict';
 
@@ -259,13 +259,16 @@ var Invest = (function () {
     });
     if (tab === 'deposit') {
       if (view.mode === 'form') renderForm(body); else renderList(body);
+    } else if (tab === 'bond') {
+      Bond.render(body, render);
     } else {
-      body.appendChild(h('p', { class: 'ce-empty', text: (tab === 'bond' ? '債券' : '股票') + '區規劃中。' }));
+      body.appendChild(h('p', { class: 'ce-empty', text: '股票區規劃中。' }));
     }
   }
 
   function open() {
     view = { mode: 'list', id: null };
+    if (window.Bond) Bond.reset();
     BK().openOverlay($('#invest'));
     render();
   }
@@ -277,6 +280,7 @@ var Invest = (function () {
       if (!b || b.dataset.tab === tab) return;
       tab = b.dataset.tab;
       view = { mode: 'list', id: null };
+      if (window.Bond) Bond.reset();
       render();
     });
   }

@@ -358,3 +358,13 @@ input[type=text] { width: 100%; }
 .iv-check { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; }
 .iv-check input { width: 20px; height: 20px; flex: none; margin-top: 1px; }
 .iv-preview { font-variant-numeric: tabular-nums; }
+
+/* 債券區 */
+.iv-btnrow { display: flex; gap: 10px; flex-wrap: wrap; }
+.iv-btnrow .btn { flex: 1; min-width: 120px; }
+.iv-list { display: flex; flex-direction: column; gap: 12px; }
+.iv-warn { color: var(--exp); }
+.iv-dep-sub.inc, .iv-dep-sub.exp { font-weight: 600; }
+.iv-dep-sub.inc { color: var(--inc); }
+.iv-dep-sub.exp { color: var(--exp); }
+.iv-row .v.exp { color: var(--exp); font-weight: 600; }
